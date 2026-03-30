@@ -1,0 +1,6 @@
+/*.egg-info/
+/.venv/
+/.coverage
+/qjs-wasi-reactor.wasm
+*.pyc
+__pycache__/

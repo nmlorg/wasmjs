@@ -1,0 +1,52 @@
+[project]
+name = 'wasmjs'
+version = '0.0.13.0.1'  # API 0, QuickJS-NG 0.13.0, code version 1.
+description = "Simple wrapper around QuickJS-NG's qjs-wasi-reactor.wasm."
+authors = [
+    {name = 'Daniel Reed', email = 'nmlorg@gmail.com'},
+]
+requires-python = '>=3.10'  # https://github.com/pylint-dev/pylint/pull/10405
+dependencies = [
+    'wasmtime',
+]
+
+[project.optional-dependencies]
+dev = [
+    'pylint',
+    'pytest-cov',
+    'pytest',
+]
+
+[project.scripts]
+wasmjs = 'wasmjs.__main__:main'
+
+[project.urls]
+Homepage = 'https://github.com/nmlorg/wasmjs'
+Issues = 'https://github.com/nmlorg/wasmjs/issues'
+
+[tool.coverage.run]
+omit = [
+    '__main__.py',
+]
+
+[tool.pylint.main]
+source-roots = ['.']
+
+[tool.pylint.'MESSAGES CONTROL']
+disable = [
+    'consider-using-ternary',
+    'too-few-public-methods',
+]
+
+[tool.pytest.ini_options]
+addopts = '-rN --cov=wasmjs --cov-report=html'
+consider_namespace_packages = true
+testpaths = ['wasmjs']
+verbosity_assertions = 2
+
+[tool.setuptools.packages.find]
+include = ['wasmjs', 'wasmjs.*']
+
+[tool.yapf]
+based_on_style = 'google'
+column_limit = 100
