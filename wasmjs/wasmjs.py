@@ -1,5 +1,6 @@
 """Simple wrapper around QuickJS-NG's qjs-wasi-reactor.wasm."""
 
+import importlib.resources
 import json
 
 from wasmjs import lifecycle
@@ -23,7 +24,8 @@ class WasmJS:
 
     def __init__(self):
         if not self._wasmfile:
-            WasmJS._wasmfile = wasmfile.WasmFile('qjs-wasi-reactor.wasm')
+            WasmJS._wasmfile = wasmfile.WasmFile(wasm=importlib.resources.files(
+                'qjs-wasi-reactor').joinpath('qjs-wasi-reactor.wasm').read_bytes())
 
         self._inst = self._wasmfile.instantiate()
         self._inst.exports.qjs_init()

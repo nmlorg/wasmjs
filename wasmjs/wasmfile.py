@@ -10,12 +10,15 @@ from wasmjs import lifecycle
 class WasmFile:
     """Simple wrapper around a single-file wasmtime module."""
 
-    def __init__(self, fname):
+    def __init__(self, *, path=None, wasm=None):
         config = wasmtime.Config()
 
         self.engine = wasmtime.Engine(config)
 
-        self.module = wasmtime.Module.from_file(self.engine, fname)
+        if wasm:
+            self.module = wasmtime.Module(self.engine, wasm)
+        else:
+            self.module = wasmtime.Module.from_file(self.engine, path)  # pragma: no cover
 
         self.linker = wasmtime.Linker(self.engine)
         self.linker.define_wasi()

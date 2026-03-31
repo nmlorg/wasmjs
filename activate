@@ -18,7 +18,3 @@ source .venv/bin/activate
 
 pip install -U pip setuptools
 pip install -U -e .[dev] build twine
-
-if [ ! -f qjs-wasi-reactor.wasm ]; then
-  wget https://github.com/quickjs-ng/quickjs/releases/download/v0.13.0/qjs-wasi-reactor.wasm
-fi

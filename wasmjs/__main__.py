@@ -16,12 +16,7 @@ def main():  # pylint: disable=missing-docstring
         format='%(asctime)s %(levelname)s %(threadName)s %(filename)s:%(lineno)s] %(message)s',
         level=args.verbose and logging.DEBUG or logging.INFO)
 
-    try:
-        js = wasmjs.WasmJS()
-    except FileNotFoundError:
-        print('Make sure https://github.com/quickjs-ng/quickjs/releases/download/v0.13.0/'
-              'qjs-wasi-reactor.wasm is available in the current directory.')
-        return
+    js = wasmjs.WasmJS()
 
     while True:
         try:
