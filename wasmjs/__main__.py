@@ -1,6 +1,7 @@
 """Simple JS REPL."""
 
 import argparse
+import json
 import logging
 import readline  # Infects input() at import. (pylint: disable=unused-import)
 
@@ -29,7 +30,7 @@ def main():  # pylint: disable=missing-docstring
             continue
 
         try:
-            print(repr(js.eval(line)))
+            print(json.dumps(js.eval(line)))
         except wasmjs.JSError as e:
             print('Exception:', e)
 
