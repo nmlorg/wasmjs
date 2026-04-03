@@ -50,7 +50,7 @@ class _Instance:
     def reserve_size_t(self):
         """Allocate enough space for a 32- or 64-bit size_t in linear memory."""
 
-        return _SizeT(self, b'\0' * self.exports.memory.pointer_size)  # pylint: disable=no-member
+        return _SizeT(self, b'\0' * self.exports.memory.pointer_size)
 
 
 class _Exports:
@@ -79,11 +79,11 @@ class _HeapAllocatedObject(lifecycle.PythonOwnedObject):
     def __init__(self, inst, buf):
         self.size = len(buf)
         offset = inst.exports.malloc(self.size)
-        super().__init__(inst, offset)
+        super().__init__(inst=inst, offset=offset)
         inst.exports.memory.write(buf, offset)
 
     def close(self):
-        self._owner.exports.free(self.offset)
+        self.inst.exports.free(self.offset)
 
 
 class _SizeT(_HeapAllocatedObject):
@@ -91,5 +91,5 @@ class _SizeT(_HeapAllocatedObject):
     def to_int(self):
         """Read the size_t from linear memory and convert it to an int."""
 
-        raw = self._owner.exports.memory.read(self.offset, self.offset + self.size)
+        raw = self.inst.exports.memory.read(self.offset, self.offset + self.size)
         return int.from_bytes(raw, 'little')

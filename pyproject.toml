@@ -36,6 +36,7 @@ source-roots = ['.']
 [tool.pylint.'MESSAGES CONTROL']
 disable = [
     'consider-using-ternary',
+    'no-member',
     'too-few-public-methods',
 ]
 

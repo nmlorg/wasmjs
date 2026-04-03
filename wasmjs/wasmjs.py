@@ -58,10 +58,10 @@ class _Context:  # pylint: disable=invalid-name
         """Evaluate s as a JavaScript expression."""
 
         with self._inst.write_string(s) as written:
-            return _JSValue(
-                self,
-                self._inst.exports.JS_Eval(self._ctx, written.offset, written.size - 1,
-                                           filename_offset, eval_flags))
+            return _JSValue(ctx=self,
+                            offset=self._inst.exports.JS_Eval(self._ctx, written.offset,
+                                                              written.size - 1, filename_offset,
+                                                              eval_flags))
 
     def FreeCString(self, cstr_offset):
         """Free [the JSVal holding] the C string in linear memory."""
@@ -79,23 +79,19 @@ class _Context:  # pylint: disable=invalid-name
         with self._inst.reserve_size_t() as sizet:
             cstr_offset = self._inst.exports.JS_ToCStringLen2(self._ctx, sizet.offset,
                                                               jsvalue_offset, cesu8)
-            return _CString(self, cstr_offset, sizet.to_int())
+            return _CString(ctx=self, offset=cstr_offset, utf8_len=sizet.to_int())
 
 
 class _CString(lifecycle.PythonOwnedObject):
 
-    def __init__(self, ctx, offset, utf8_len):
-        super().__init__(ctx, offset)
-        self.utf8_len = utf8_len
-
     def to_string(self):
         """Convert this C string to a Python string."""
 
-        return self._owner._inst.exports.memory.read(  # pylint: disable=protected-access
+        return self.ctx._inst.exports.memory.read(  # pylint: disable=protected-access
             self.offset, self.offset + self.utf8_len).decode('utf-8')
 
     def close(self):
-        self._owner.FreeCString(self.offset)
+        self.ctx.FreeCString(self.offset)
 
 
 class _JSValue(lifecycle.PythonOwnedObject):
@@ -103,8 +99,8 @@ class _JSValue(lifecycle.PythonOwnedObject):
     def to_string(self):
         """Convert this JSValue to a Python string."""
 
-        with self._owner.ToCStringLen2(self.offset, 0) as cstr:
+        with self.ctx.ToCStringLen2(self.offset, 0) as cstr:
             return cstr.to_string()
 
     def close(self):
-        self._owner.FreeValue(self.offset)
+        self.ctx.FreeValue(self.offset)
