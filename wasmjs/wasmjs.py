@@ -28,6 +28,8 @@ class WasmJS:
                 'qjs-wasi-reactor').joinpath('qjs-wasi-reactor.wasm').read_bytes())
 
         self._inst = self._wasmfile.instantiate()
+        assert self._inst.exports.memory.pointer_size == 4, (
+            'This build of wasmjs assumes JSValues are NaN-boxed int64s.')
         self._inst.exports.qjs_init()
         self._api = _PythonicAPI(self._inst)
 
@@ -58,14 +60,14 @@ class _PythonicAPI:
         """Return eval(s) as a JSValue."""
 
         with self.inst.write_string(s) as written:
-            jsval_offset = self.lowlevel.Eval(written.offset, written.size - 1, 0, 0)
-        return _JSValue(api=self, offset=jsval_offset)
+            jsval_nanbox = self.lowlevel.Eval(written.offset, written.size - 1, 0, 0)
+        return _JSValue(api=self, nanbox=jsval_nanbox)
 
-    def jsval_to_cstr(self, jsval_offset):
+    def jsval_to_cstr(self, jsval_nanbox):
         """Return String(JSValue) as a C string."""
 
         with self.inst.reserve_size_t() as sizet:
-            cstr_offset = self.lowlevel.ToCStringLen2(sizet.offset, jsval_offset, 0)
+            cstr_offset = self.lowlevel.ToCStringLen2(sizet.offset, jsval_nanbox, 0)
             return _CString(api=self, offset=cstr_offset, utf8_len=sizet.to_int())
 
 
@@ -86,11 +88,23 @@ class _JSValue(lifecycle.PythonOwnedObject):
     def to_string(self):
         """Convert this JSValue to a Python string."""
 
-        with self.api.jsval_to_cstr(self.offset) as cstr:
+        with self.api.jsval_to_cstr(self.nanbox) as cstr:
             return cstr.to_string()
 
+    @property
+    def tag(self):
+        """Essentially the type of data represented by the JSValue."""
+
+        return self.nanbox >> 32
+
+    @property
+    def stored_value(self):
+        """Typically either a linear memory offset or a [small] literal value."""
+
+        return self.nanbox & ((1 << 32) - 1)
+
     def close(self):
-        self.api.lowlevel.FreeValue(self.offset)
+        self.api.lowlevel.FreeValue(self.nanbox)
 
 
 class _CAPI:  # pylint: disable=invalid-name,missing-function-docstring
@@ -107,8 +121,8 @@ class _CAPI:  # pylint: disable=invalid-name,missing-function-docstring
     def FreeCString(self, cstr_offset):
         return self.inst.exports.JS_FreeCString(self.ctx, cstr_offset)
 
-    def FreeValue(self, jsval_offset):
-        return self.inst.exports.JS_FreeValue(self.ctx, jsval_offset)
+    def FreeValue(self, jsval_nanbox):
+        return self.inst.exports.JS_FreeValue(self.ctx, jsval_nanbox)
 
-    def ToCStringLen2(self, sizet_offset, jsvalue_offset, cesu8):
-        return self.inst.exports.JS_ToCStringLen2(self.ctx, sizet_offset, jsvalue_offset, cesu8)
+    def ToCStringLen2(self, sizet_offset, jsvalue_nanbox, cesu8):
+        return self.inst.exports.JS_ToCStringLen2(self.ctx, sizet_offset, jsvalue_nanbox, cesu8)
