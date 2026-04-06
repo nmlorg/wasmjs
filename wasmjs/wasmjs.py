@@ -1,5 +1,6 @@
 """Simple wrapper around QuickJS-NG's qjs-wasi-reactor.wasm."""
 
+import contextlib
 import importlib.resources
 import json
 
@@ -55,6 +56,21 @@ class _PythonicAPI:
     def __init__(self, inst):
         self.inst = inst
         self.lowlevel = _CAPI(inst)
+
+    def call_to_jsval(self, func_nanbox, *args, this_nanbox=0):
+        """Return func_nanbox.call(this_nanbox, *args) as a JSValue."""
+
+        with contextlib.ExitStack() as stack:
+            jsval_nanboxes = []
+            for arg in args:
+                with self.inst.write_string(arg) as written:
+                    jsval_nanbox = self.lowlevel.NewStringLen(written.offset, written.size - 1)
+                jsval_nanboxes.append(jsval_nanbox.to_bytes(8, 'little', signed=True))
+                stack.enter_context(_JSValue(api=self, nanbox=jsval_nanbox))
+            with self.inst.write_buf(b''.join(jsval_nanboxes)) as written_argv:
+                jsval_nanbox = self.lowlevel.Call(func_nanbox, this_nanbox, len(args),
+                                                  written_argv.offset)
+        return _JSValue(api=self, nanbox=jsval_nanbox)
 
     def eval_to_jsval(self, s):
         """Return eval(s) as a JSValue."""
@@ -114,6 +130,9 @@ class _CAPI:  # pylint: disable=invalid-name,missing-function-docstring
         self.inst = inst
         self.ctx = inst.exports.qjs_get_context()
 
+    def Call(self, func_nanbox, this_nanbox, argc, argv_offset):
+        return self.inst.exports.JS_Call(self.ctx, func_nanbox, this_nanbox, argc, argv_offset)
+
     def Eval(self, input_offset, input_len, filename_offset, eval_flags):
         return self.inst.exports.JS_Eval(self.ctx, input_offset, input_len, filename_offset,
                                          eval_flags)
@@ -123,6 +142,9 @@ class _CAPI:  # pylint: disable=invalid-name,missing-function-docstring
 
     def FreeValue(self, jsval_nanbox):
         return self.inst.exports.JS_FreeValue(self.ctx, jsval_nanbox)
+
+    def NewStringLen(self, str1_offset, len1):
+        return self.inst.exports.JS_NewStringLen(self.ctx, str1_offset, len1)
 
     def ToCStringLen2(self, sizet_offset, jsvalue_nanbox, cesu8):
         return self.inst.exports.JS_ToCStringLen2(self.ctx, sizet_offset, jsvalue_nanbox, cesu8)

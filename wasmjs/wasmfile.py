@@ -42,10 +42,15 @@ class _Instance:
 
         self.exports = _Exports(store, instance)
 
+    def write_buf(self, buf):
+        """Write buf into linear memory."""
+
+        return _HeapAllocatedObject(self, buf)
+
     def write_string(self, s):
         """Write s as a UTF-8-encoded, nil-terminated string into linear memory."""
 
-        return _HeapAllocatedObject(self, s.encode('utf-8') + b'\0')
+        return self.write_buf(s.encode('utf-8') + b'\0')
 
     def reserve_size_t(self):
         """Allocate enough space for a 32- or 64-bit size_t in linear memory."""
