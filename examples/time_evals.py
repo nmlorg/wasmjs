@@ -8,7 +8,7 @@ from wasmjs import wasmjs
 
 
 def main():  # pylint: disable=missing-function-docstring
-    # pylint: disable=duplicate-code,protected-access
+    # pylint: disable=duplicate-code,protected-access,too-many-statements
     logging.basicConfig(format='%(asctime)s %(levelname)s %(filename)s:%(lineno)s] %(message)s',
                         level=logging.DEBUG)
 
@@ -48,6 +48,30 @@ globalThis.__eval_json = function(src) {
     for _ in range(num):
         with js._api.eval_to_jsval(f'__eval_json({json.dumps(expr)})') as jsval:
             data = json.loads(jsval.to_string())
+        assert data.get('value') == 3
+    end = time.time()
+    logging.info('%i iterations took %s seconds.', num, end - start)
+
+    logging.info('Creating WasmJS.')
+    js = wasmjs.WasmJS()
+    eval_nostringify_bootstrap = """
+globalThis.__eval_json_nostringify = function(src) {
+  try {
+    return {ok: true, value: eval(src)};
+  } catch (e) {
+    return {ok: false, error: String(e)};
+  }
+};
+"""
+    logging.info('Installing globalThis.__eval_json_nostringify.')
+    with js._api.eval_to_jsval(eval_nostringify_bootstrap):
+        pass
+    logging.info("Timing eval_to_jsval(f'__eval_json_nostringify({json.dumps(expr)})').to_json().")
+    start = time.time()
+    for _ in range(num):
+        with js._api.eval_to_jsval(f'__eval_json_nostringify({json.dumps(expr)})') as jsval:
+            with jsval.to_json() as jsonval:
+                data = json.loads(jsonval.to_string())
         assert data.get('value') == 3
     end = time.time()
     logging.info('%i iterations took %s seconds.', num, end - start)

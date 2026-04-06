@@ -86,6 +86,12 @@ class _PythonicAPI:
             cstr_offset = self.lowlevel.ToCStringLen2(sizet.offset, jsval_nanbox, 0)
             return _CString(api=self, offset=cstr_offset, utf8_len=sizet.to_int())
 
+    def jsval_to_json(self, jsval_nanbox):
+        """Return JSON.stringify(JSValue) as a JSValue."""
+
+        jsonval_nanbox = self.lowlevel.JSONStringify(jsval_nanbox, 0, 0)
+        return _JSValue(api=self, nanbox=jsonval_nanbox)
+
 
 class _CString(lifecycle.PythonOwnedObject):
 
@@ -100,6 +106,11 @@ class _CString(lifecycle.PythonOwnedObject):
 
 
 class _JSValue(lifecycle.PythonOwnedObject):
+
+    def to_json(self):
+        """Convert this JSValue to a JSValue holding a JSON string of itself."""
+
+        return self.api.jsval_to_json(self.nanbox)
 
     def to_string(self):
         """Convert this JSValue to a Python string."""
@@ -142,6 +153,10 @@ class _CAPI:  # pylint: disable=invalid-name,missing-function-docstring
 
     def FreeValue(self, jsval_nanbox):
         return self.inst.exports.JS_FreeValue(self.ctx, jsval_nanbox)
+
+    def JSONStringify(self, obj_nanbox, replacer_nanbox, space0_nanbox):
+        return self.inst.exports.JS_JSONStringify(self.ctx, obj_nanbox, replacer_nanbox,
+                                                  space0_nanbox)
 
     def NewStringLen(self, str1_offset, len1):
         return self.inst.exports.JS_NewStringLen(self.ctx, str1_offset, len1)
