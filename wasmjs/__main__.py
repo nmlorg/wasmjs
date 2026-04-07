@@ -32,7 +32,9 @@ def main():  # pylint: disable=missing-docstring
         try:
             print(json.dumps(js.eval(line)))
         except wasmjs.JSError as e:
-            print('Exception:', e)
+            print(e)
+            if e.stack:
+                print(e.stack, end='')
 
 
 if __name__ == '__main__':
