@@ -64,6 +64,8 @@ class _Exports:
         for k, v in instance.exports(store).items():
             if isinstance(v, wasmtime.Func):
                 v = functools.partial(v, store)
+            elif isinstance(v, wasmtime.Global):
+                v = functools.partial(v.value, store)
             elif isinstance(v, wasmtime.Memory):
                 v = _Memory(v, store)
             else:
