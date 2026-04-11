@@ -1,13 +1,13 @@
 [project]
 name = 'wasmjs'
-version = '0.0.13.0.1'  # API 0, QuickJS-NG 0.13.0, code version 1.
+version = '0.0.14.0.1'  # API 0, QuickJS-NG 0.14.0, code version 1.
 description = "Simple wrapper around QuickJS-NG's qjs-wasi-reactor.wasm."
 authors = [
     {name = 'Daniel Reed', email = 'nmlorg@gmail.com'},
 ]
 requires-python = '>=3.10'  # https://github.com/pylint-dev/pylint/pull/10405
 dependencies = [
-    'qjs-wasi-reactor.wasm >= 0.13.0, < 0.13.1',
+    'qjs-wasi-reactor.wasm >= 0.14.0, < 0.14.1',
     'wasmtime',
 ]
 
