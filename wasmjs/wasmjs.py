@@ -4,7 +4,7 @@ import contextlib
 import importlib.resources
 import json
 
-from wasmjs import lifecycle
+from wasmjs import jsvalueutil
 from wasmjs import wasmfile
 
 _BOOTSTRAP = """
@@ -75,72 +75,18 @@ class _PythonicAPI:
                 with self.inst.write_string(arg) as written:
                     jsval_nanbox = self.lowlevel.NewStringLen(written.offset, written.size - 1)
                 jsval_nanboxes.append(jsval_nanbox.to_bytes(8, 'little', signed=True))
-                stack.enter_context(_JSValue(api=self, nanbox=jsval_nanbox))
+                stack.enter_context(jsvalueutil.JSValue(api=self, nanbox=jsval_nanbox))
             with self.inst.write_buf(b''.join(jsval_nanboxes)) as written_argv:
                 jsval_nanbox = self.lowlevel.Call(func_nanbox, this_nanbox, len(args),
                                                   written_argv.offset)
-        return _JSValue(api=self, nanbox=jsval_nanbox)
+        return jsvalueutil.JSValue(api=self, nanbox=jsval_nanbox)
 
     def eval_to_jsval(self, s):
         """Return eval(s) as a JSValue."""
 
         with self.inst.write_string(s) as written:
             jsval_nanbox = self.lowlevel.Eval(written.offset, written.size - 1, 0, 0)
-        return _JSValue(api=self, nanbox=jsval_nanbox)
-
-    def jsval_to_cstr(self, jsval_nanbox):
-        """Return String(JSValue) as a C string."""
-
-        with self.inst.reserve_size_t() as sizet:
-            cstr_offset = self.lowlevel.ToCStringLen2(sizet.offset, jsval_nanbox, 0)
-            return _CString(api=self, offset=cstr_offset, utf8_len=sizet.to_int())
-
-    def jsval_to_json(self, jsval_nanbox):
-        """Return JSON.stringify(JSValue) as a JSValue."""
-
-        jsonval_nanbox = self.lowlevel.JSONStringify(jsval_nanbox, 0, 0)
-        return _JSValue(api=self, nanbox=jsonval_nanbox)
-
-
-class _CString(lifecycle.PythonOwnedObject):
-
-    def to_string(self):
-        """Convert this C string to a Python string."""
-
-        return self.api.inst.exports.memory.read(self.offset,
-                                                 self.offset + self.utf8_len).decode('utf-8')
-
-    def close(self):
-        self.api.lowlevel.FreeCString(self.offset)
-
-
-class _JSValue(lifecycle.PythonOwnedObject):
-
-    def to_json(self):
-        """Convert this JSValue to a JSValue holding a JSON string of itself."""
-
-        return self.api.jsval_to_json(self.nanbox)
-
-    def to_string(self):
-        """Convert this JSValue to a Python string."""
-
-        with self.api.jsval_to_cstr(self.nanbox) as cstr:
-            return cstr.to_string()
-
-    @property
-    def tag(self):
-        """Essentially the type of data represented by the JSValue."""
-
-        return self.nanbox >> 32
-
-    @property
-    def stored_value(self):
-        """Typically either a linear memory offset or a [small] literal value."""
-
-        return self.nanbox & ((1 << 32) - 1)
-
-    def close(self):
-        self.api.lowlevel.FreeValue(self.nanbox)
+        return jsvalueutil.JSValue(api=self, nanbox=jsval_nanbox)
 
 
 class _CAPI:  # pylint: disable=invalid-name,missing-function-docstring
