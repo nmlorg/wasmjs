@@ -36,6 +36,36 @@ JS_FLOAT64_BIAS = JS_FLOAT64_TAG_ADDEND << 32
 class JSValue(lifecycle.PythonOwnedObject):
     """A dynamically typed QuickJS object."""
 
+    def __init__(self, *, api, nanbox=None, tag=None, int32=None):
+        if nanbox is None:
+            nanbox = tag << 32
+            if int32:
+                nanbox |= int32
+
+        super().__init__(api=api, nanbox=nanbox)
+
+    @classmethod
+    def encode(cls, api, value):  # pylint: disable=too-many-return-statements
+        """Encode the given value as a JSValue, storing it in linear memory if necessary."""
+
+        if value is None:
+            return cls(api=api, tag=Tag.NULL)
+        if isinstance(value, bool):
+            return cls(api=api, tag=Tag.BOOL, int32=int(value))
+        if isinstance(value, int):
+            if -2**31 <= value < 2**31:
+                return cls(api=api, tag=Tag.INT, int32=value & ((1 << 32) - 1))
+            if abs(value) < 2**53:
+                return cls.encode(api, float(value))
+            return api.eval_to_jsval(f'{value}n')
+        if isinstance(value, float):
+            return cls(api=api, nanbox=_Union64(f64=value).i64 - JS_FLOAT64_BIAS)
+        if isinstance(value, str):
+            with api.inst.write_string(value) as written:
+                nanbox = api.lowlevel.NewStringLen(written.offset, written.size - 1)
+            return cls(api=api, nanbox=nanbox)
+        return api.eval_to_jsval(json.dumps(value))
+
     def decode(self):
         """Convert this to a Python data type, pulling from linear memory if necessary."""
 

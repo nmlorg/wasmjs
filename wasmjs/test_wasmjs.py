@@ -16,3 +16,14 @@ def test_basic():
 
     with pytest.raises(wasmjs.JSError):
         js.eval('1 +')
+
+
+def test_call():
+    """Test WasmJS._api.call_to_jsval."""
+
+    api = wasmjs.WasmJS()._api  # pylint: disable=protected-access
+
+    with api.eval_to_jsval(
+            'function test(...args) { return JSON.stringify(args); }; test;') as test:
+        with api.call_to_jsval(test.nanbox, 'x', 1, 2.3, True, None) as jsval:
+            assert jsval.decode() == '["x",1,2.3,true,null]'

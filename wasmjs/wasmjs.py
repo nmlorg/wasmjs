@@ -72,10 +72,8 @@ class _PythonicAPI:
         with contextlib.ExitStack() as stack:
             jsval_nanboxes = []
             for arg in args:
-                with self.inst.write_string(arg) as written:
-                    jsval_nanbox = self.lowlevel.NewStringLen(written.offset, written.size - 1)
-                jsval_nanboxes.append(jsval_nanbox.to_bytes(8, 'little', signed=True))
-                stack.enter_context(jsvalueutil.JSValue(api=self, nanbox=jsval_nanbox))
+                jsval = stack.enter_context(jsvalueutil.JSValue.encode(self, arg))
+                jsval_nanboxes.append(jsval.nanbox.to_bytes(8, 'little', signed=True))
             with self.inst.write_buf(b''.join(jsval_nanboxes)) as written_argv:
                 jsval_nanbox = self.lowlevel.Call(func_nanbox, this_nanbox, len(args),
                                                   written_argv.offset)
