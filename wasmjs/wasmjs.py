@@ -7,18 +7,6 @@ import json
 from wasmjs import jsvalueutil
 from wasmjs import wasmfile
 
-_BOOTSTRAP = """
-globalThis.__wej = function wasmjs_eval(src) {
-  try {
-    return JSON.stringify({ok: true, value: eval(src)});
-  } catch (e) {
-    if (!(e instanceof Error))
-      e = new Error(e);
-    return JSON.stringify({ok: false, message: e.message, name: e.name, stack: e.stack});
-  }
-};
-"""
-
 
 class WasmJS:
     """Simple wrapper around QuickJS-NG's qjs-wasi-reactor.wasm."""
@@ -36,13 +24,26 @@ class WasmJS:
         self._inst.exports.qjs_init()
         self._api = _PythonicAPI(self._inst)
 
-        with self._api.eval_to_jsval(_BOOTSTRAP):
-            pass
+        if self._bootstrap:
+            with self._api.eval_to_jsval(self._bootstrap):
+                pass
 
-    def eval(self, s):
+    _bootstrap = """
+        globalThis.__wej = function wasmjs_eval(src) {
+          try {
+            return JSON.stringify({ok: true, value: eval(src)});
+          } catch (e) {
+            if (!(e instanceof Error))
+              e = new Error(e);
+            return JSON.stringify({ok: false, message: e.message, name: e.name, stack: e.stack});
+          }
+        };
+    """
+
+    def eval(self, expr):
         """Evaluate s as a JavaScript expression."""
 
-        with self._api.eval_to_jsval(f'__wej({json.dumps(s)})') as jsval:
+        with self._api.eval_to_jsval(f'__wej({json.dumps(expr)})') as jsval:
             data = json.loads(jsval.to_string())
         if not data['ok']:
             data.pop('ok')
