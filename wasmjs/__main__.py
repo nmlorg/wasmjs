@@ -31,6 +31,9 @@ def main():  # pylint: disable=missing-docstring
 
         try:
             print(json.dumps(js.eval(line)))
+        except wasmjs.InterpreterError as e:
+            print(e.__cause__)
+            print('!!! The interpreter may now be unstable !!!')
         except wasmjs.JSError as e:
             print(e)
             if e.stack:
