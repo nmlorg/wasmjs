@@ -86,6 +86,8 @@ class _HeapAllocatedObject(lifecycle.PythonOwnedObject):
     def __init__(self, inst, buf):
         self.size = len(buf)
         offset = inst.exports.malloc(self.size)
+        if not (0 < offset < 2**32 - self.size):
+            raise MemoryError(f"malloc({self.size}) returned {offset or 'NULL'}")
         super().__init__(inst=inst, offset=offset)
         inst.exports.memory.write(buf, offset)
 
