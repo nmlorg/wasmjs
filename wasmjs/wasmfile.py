@@ -21,7 +21,14 @@ class WasmFile:
             self.module = wasmtime.Module.from_file(self.engine, path)  # pragma: no cover
 
         self.linker = wasmtime.Linker(self.engine)
-        self.linker.define_wasi()
+
+        for symbol in self.module.imports:
+            if symbol.module == 'wasi_snapshot_preview1':
+                self.linker.define_wasi()
+                self.needs_wasi = True
+                break
+        else:
+            self.needs_wasi = False
 
     def instantiate(self):
         """Create a runnable instance of this module."""
@@ -32,11 +39,12 @@ class WasmFile:
 class _Instance:
 
     def __init__(self, wasmfile):
-        wasi_config = wasmtime.WasiConfig()
-        wasi_config.inherit_stdout()
-
         store = wasmtime.Store(wasmfile.engine)
-        store.set_wasi(wasi_config)
+
+        if wasmfile.needs_wasi:
+            wasi_config = wasmtime.WasiConfig()
+            wasi_config.inherit_stdout()
+            store.set_wasi(wasi_config)
 
         instance = wasmfile.linker.instantiate(store, wasmfile.module)
 
