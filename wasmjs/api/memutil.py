@@ -29,16 +29,14 @@ class _HeapAllocatedObject(lifecycle.PythonOwnedObject):
 
     def __init__(self, inst, buf):
         self.size = len(buf)
-        offset = inst.exports.malloc(self.size)
-        if offset < 0:
-            offset += 2**32
+        offset = inst.api.wasilibc.malloc(self.size)
         if not 0 < offset < 2**32 - self.size:
             raise MemoryError(f"malloc({self.size}) returned {offset or 'NULL'}")
         super().__init__(inst=inst, offset=offset)
         inst.exports.memory.write(buf, offset)
 
     def close(self):
-        self.inst.exports.free(self.offset)
+        self.inst.api.wasilibc.free(self.offset)
 
 
 class _SizeT(_HeapAllocatedObject):
