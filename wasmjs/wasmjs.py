@@ -82,7 +82,7 @@ class _PythonicAPI:
             for arg in args:
                 jsval = stack.enter_context(jsvalueutil.JSValue.encode(self, arg))
                 jsval_nanboxes.append(jsval.nanbox.to_bytes(8, 'little', signed=True))
-            with self.inst.write_buf(b''.join(jsval_nanboxes)) as written_argv:
+            with self.inst.api.memutil.write_buf(b''.join(jsval_nanboxes)) as written_argv:
                 jsval_nanbox = self.lowlevel.Call(func_nanbox, this_nanbox, len(args),
                                                   written_argv.offset)
         return jsvalueutil.JSValue(api=self, nanbox=jsval_nanbox)
@@ -90,7 +90,7 @@ class _PythonicAPI:
     def eval_to_jsval(self, s):
         """Return eval(s) as a JSValue."""
 
-        with self.inst.write_string(s) as written:
+        with self.inst.api.memutil.write_string(s) as written:
             jsval_nanbox = self.lowlevel.Eval(written.offset, written.size - 1, 0, 0)
         return jsvalueutil.JSValue(api=self, nanbox=jsval_nanbox)
 

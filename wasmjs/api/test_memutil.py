@@ -1,4 +1,4 @@
-"""Tests for wasmjs.wasmfile."""
+"""Tests for wasmjs.api.memutil."""
 
 from wasmjs import wasmfile
 
@@ -59,17 +59,17 @@ STUB_MODULE = wasmfile.WasmFile(wasm=f"""
 
 
 def test_write_string():
-    """Test _Instance.write_string."""
+    """Test API.write_string."""
 
     def _allmem():
         return inst.exports.memory.read(0, inst.exports.heap_end())
 
     inst = STUB_MODULE.instantiate()
     assert _allmem() == b''
-    with inst.write_string('hello') as hello:
+    with inst.api.memutil.write_string('hello') as hello:
         assert hello.offset == 2
         assert _allmem() == b'\x06\0hello\0'
-        with inst.write_string('w\u2022rld') as world:
+        with inst.api.memutil.write_string('w\u2022rld') as world:
             assert world.offset == 10
             assert '\u2022'.encode('utf-8') == b'\xe2\x80\xa2'
             assert _allmem() == b'\x06\0hello\0\x08\0w\xe2\x80\xa2rld\0'

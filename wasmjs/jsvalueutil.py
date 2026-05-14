@@ -61,7 +61,7 @@ class JSValue(lifecycle.PythonOwnedObject):
         if isinstance(value, float):
             return cls(api=api, nanbox=_Union64(f64=value).i64 - JS_FLOAT64_BIAS)
         if isinstance(value, str):
-            with api.inst.write_string(value) as written:
+            with api.inst.api.memutil.write_string(value) as written:
                 nanbox = api.lowlevel.NewStringLen(written.offset, written.size - 1)
             return cls(api=api, nanbox=nanbox)
         return api.eval_to_jsval(json.dumps(value))
@@ -95,7 +95,7 @@ class JSValue(lifecycle.PythonOwnedObject):
     def to_cstr(self):
         """Return String(self.nanbox) as a C string."""
 
-        with self.api.inst.reserve_size_t() as sizet:
+        with self.api.inst.api.memutil.reserve_size_t() as sizet:
             cstr_offset = self.api.lowlevel.ToCStringLen2(sizet.offset, self.nanbox, 0)
             return _CString(api=self.api, offset=cstr_offset, utf8_len=sizet.to_int())
 
