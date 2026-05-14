@@ -72,7 +72,6 @@ class _PythonicAPI:
 
     def __init__(self, inst):
         self.inst = inst
-        self.lowlevel = _CAPI(inst)
 
     def call_to_jsval(self, func_nanbox, *args, this_nanbox=0):
         """Return func_nanbox.call(this_nanbox, *args) as a JSValue."""
@@ -83,44 +82,13 @@ class _PythonicAPI:
                 jsval = stack.enter_context(jsvalueutil.JSValue.encode(self, arg))
                 jsval_nanboxes.append(jsval.nanbox.to_bytes(8, 'little', signed=True))
             with self.inst.api.memutil.write_buf(b''.join(jsval_nanboxes)) as written_argv:
-                jsval_nanbox = self.lowlevel.Call(func_nanbox, this_nanbox, len(args),
-                                                  written_argv.offset)
+                jsval_nanbox = self.inst.api.qjs.JS_Call(func_nanbox, this_nanbox, len(args),
+                                                         written_argv.offset)
         return jsvalueutil.JSValue(api=self, nanbox=jsval_nanbox)
 
     def eval_to_jsval(self, s):
         """Return eval(s) as a JSValue."""
 
         with self.inst.api.memutil.write_string(s) as written:
-            jsval_nanbox = self.lowlevel.Eval(written.offset, written.size - 1, 0, 0)
+            jsval_nanbox = self.inst.api.qjs.JS_Eval(written.offset, written.size - 1, 0, 0)
         return jsvalueutil.JSValue(api=self, nanbox=jsval_nanbox)
-
-
-class _CAPI:  # pylint: disable=invalid-name,missing-function-docstring
-    """See https://github.com/quickjs-ng/quickjs/blob/master/quickjs.h."""
-
-    def __init__(self, inst):
-        self.inst = inst
-        self.ctx = inst.exports.qjs_get_context()
-
-    def Call(self, func_nanbox, this_nanbox, argc, argv_offset):
-        return self.inst.exports.JS_Call(self.ctx, func_nanbox, this_nanbox, argc, argv_offset)
-
-    def Eval(self, input_offset, input_len, filename_offset, eval_flags):
-        return self.inst.exports.JS_Eval(self.ctx, input_offset, input_len, filename_offset,
-                                         eval_flags)
-
-    def FreeCString(self, cstr_offset):
-        return self.inst.exports.JS_FreeCString(self.ctx, cstr_offset)
-
-    def FreeValue(self, jsval_nanbox):
-        return self.inst.exports.JS_FreeValue(self.ctx, jsval_nanbox)
-
-    def JSONStringify(self, obj_nanbox, replacer_nanbox, space0_nanbox):
-        return self.inst.exports.JS_JSONStringify(self.ctx, obj_nanbox, replacer_nanbox,
-                                                  space0_nanbox)
-
-    def NewStringLen(self, str1_offset, len1):
-        return self.inst.exports.JS_NewStringLen(self.ctx, str1_offset, len1)
-
-    def ToCStringLen2(self, sizet_offset, jsvalue_nanbox, cesu8):
-        return self.inst.exports.JS_ToCStringLen2(self.ctx, sizet_offset, jsvalue_nanbox, cesu8)
