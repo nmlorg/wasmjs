@@ -21,7 +21,6 @@ class WasmJS:
         self._inst = self._wasmfile.instantiate()
         assert self._inst.exports.memory.pointer_size == 4, (
             'This build of wasmjs assumes JSValues are NaN-boxed int64s.')
-        self._inst.exports.qjs_init()
         self._api = _PythonicAPI(self._inst)
 
         if self._bootstrap:
