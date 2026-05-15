@@ -36,35 +36,35 @@ JS_FLOAT64_BIAS = JS_FLOAT64_TAG_ADDEND << 32
 class JSValue(lifecycle.PythonOwnedObject):
     """A dynamically typed QuickJS object."""
 
-    def __init__(self, *, api, nanbox=None, tag=None, int32=None):
+    def __init__(self, *, inst, nanbox=None, tag=None, int32=None):
         if nanbox is None:
             nanbox = tag << 32
             if int32:
                 nanbox |= int32
 
-        super().__init__(api=api, nanbox=nanbox)
+        super().__init__(inst=inst, nanbox=nanbox)
 
     @classmethod
-    def encode(cls, api, value):  # pylint: disable=too-many-return-statements
+    def encode(cls, inst, value):  # pylint: disable=too-many-return-statements
         """Encode the given value as a JSValue, storing it in linear memory if necessary."""
 
         if value is None:
-            return cls(api=api, tag=Tag.NULL)
+            return cls(inst=inst, tag=Tag.NULL)
         if isinstance(value, bool):
-            return cls(api=api, tag=Tag.BOOL, int32=int(value))
+            return cls(inst=inst, tag=Tag.BOOL, int32=int(value))
         if isinstance(value, int):
             if -2**31 <= value < 2**31:
-                return cls(api=api, tag=Tag.INT, int32=value & ((1 << 32) - 1))
+                return cls(inst=inst, tag=Tag.INT, int32=value & ((1 << 32) - 1))
             if abs(value) < 2**53:
-                return cls.encode(api, float(value))
-            return api.eval_to_jsval(f'{value}n')
+                return cls.encode(inst, float(value))
+            return inst.api.js.eval_to_jsval(f'{value}n')
         if isinstance(value, float):
-            return cls(api=api, nanbox=_Union64(f64=value).i64 - JS_FLOAT64_BIAS)
+            return cls(inst=inst, nanbox=_Union64(f64=value).i64 - JS_FLOAT64_BIAS)
         if isinstance(value, str):
-            with api.inst.api.memutil.write_string(value) as written:
-                nanbox = api.inst.api.qjs.JS_NewStringLen(written.offset, written.size - 1)
-            return cls(api=api, nanbox=nanbox)
-        return api.eval_to_jsval(json.dumps(value))
+            with inst.api.memutil.write_string(value) as written:
+                nanbox = inst.api.qjs.JS_NewStringLen(written.offset, written.size - 1)
+            return cls(inst=inst, nanbox=nanbox)
+        return inst.api.js.eval_to_jsval(json.dumps(value))
 
     def decode(self):
         """Convert this to a Python data type, pulling from linear memory if necessary."""
@@ -95,15 +95,15 @@ class JSValue(lifecycle.PythonOwnedObject):
     def to_cstr(self):
         """Return String(self.nanbox) as a C string."""
 
-        with self.api.inst.api.memutil.reserve_size_t() as sizet:
-            cstr_offset = self.api.inst.api.qjs.JS_ToCStringLen2(sizet.offset, self.nanbox, 0)
-            return _CString(api=self.api, offset=cstr_offset, utf8_len=sizet.to_int())
+        with self.inst.api.memutil.reserve_size_t() as sizet:
+            cstr_offset = self.inst.api.qjs.JS_ToCStringLen2(sizet.offset, self.nanbox, 0)
+            return _CString(inst=self.inst, offset=cstr_offset, utf8_len=sizet.to_int())
 
     def to_json(self):
         """Return JSON.stringify(self.nanbox) as a JSValue."""
 
-        jsonval_nanbox = self.api.inst.api.qjs.JS_JSONStringify(self.nanbox, 0, 0)
-        return JSValue(api=self.api, nanbox=jsonval_nanbox)
+        jsonval_nanbox = self.inst.api.qjs.JS_JSONStringify(self.nanbox, 0, 0)
+        return JSValue(inst=self.inst, nanbox=jsonval_nanbox)
 
     def to_string(self):
         """Return String(self.nanbox) as a Python string."""
@@ -112,7 +112,7 @@ class JSValue(lifecycle.PythonOwnedObject):
             return cstr.to_string()
 
     def close(self):
-        self.api.inst.api.qjs.JS_FreeValue(self.nanbox)
+        self.inst.api.qjs.JS_FreeValue(self.nanbox)
 
 
 class _CString(lifecycle.PythonOwnedObject):
@@ -120,11 +120,11 @@ class _CString(lifecycle.PythonOwnedObject):
     def to_string(self):
         """Convert this C string to a Python string."""
 
-        return self.api.inst.exports.memory.read(self.offset,
-                                                 self.offset + self.utf8_len).decode('utf-8')
+        return self.inst.exports.memory.read(self.offset,
+                                             self.offset + self.utf8_len).decode('utf-8')
 
     def close(self):
-        self.api.inst.api.qjs.JS_FreeCString(self.offset)
+        self.inst.api.qjs.JS_FreeCString(self.offset)
 
 
 class _Union64(ctypes.Union):

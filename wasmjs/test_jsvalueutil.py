@@ -36,10 +36,10 @@ def test_jsvalue():
         ('new Array(1, 2, 3)', tag.OBJECT, [1, 2, 3], '1,2,3'),
     ]
 
-    api = wasmjs.WasmJS()._api  # pylint: disable=protected-access
+    inst = wasmjs.WasmJS()._inst  # pylint: disable=protected-access
 
     for js_expr, tag, expected_val, js_string in table:
-        with api.eval_to_jsval(js_expr) as jsval:
+        with inst.api.js.eval_to_jsval(js_expr) as jsval:
             assert jsval.tag == tag
             actual_val = jsval.decode()
             if expected_val is math.nan:
@@ -48,6 +48,6 @@ def test_jsvalue():
                 assert actual_val == expected_val
 
         if js_string:
-            with jsvalueutil.JSValue.encode(api, expected_val) as jsval:
+            with jsvalueutil.JSValue.encode(inst, expected_val) as jsval:
                 assert jsval.tag == tag, jsval.to_string()
                 assert jsval.to_string() == js_string

@@ -21,7 +21,7 @@ class Base(wasmjs.WasmJS, _Logger):
     _bootstrap = ''
 
     def eval(self, expr):
-        with self._api.eval_to_jsval(expr) as jsval:
+        with self._inst.api.js.eval_to_jsval(expr) as jsval:
             return jsval.decode()
 
 
@@ -31,7 +31,7 @@ class _(Base):
     """json.loads(JSONStringify(eval_to_jsval(expr)))"""
 
     def eval(self, expr):
-        with self._api.eval_to_jsval(expr) as jsval:
+        with self._inst.api.js.eval_to_jsval(expr) as jsval:
             with jsval.to_json() as jsonval:
                 return json.loads(jsonval.decode())
 
@@ -42,7 +42,7 @@ class _(Base):
     """
 
     def eval(self, expr):
-        with self._api.eval_to_jsval(f'JSON.stringify({expr})') as jsval:
+        with self._inst.api.js.eval_to_jsval(f'JSON.stringify({expr})') as jsval:
             return json.loads(jsval.decode())
 
 
@@ -52,7 +52,7 @@ class _(Base):
     """
 
     def eval(self, expr):
-        with self._api.eval_to_jsval(f'eval({json.dumps(expr)})') as jsval:
+        with self._inst.api.js.eval_to_jsval(f'eval({json.dumps(expr)})') as jsval:
             return jsval.decode()
 
 
@@ -62,7 +62,7 @@ class _(Base):
     """
 
     def eval(self, expr):
-        with self._api.eval_to_jsval(f'eval({json.dumps(expr)})') as jsval:
+        with self._inst.api.js.eval_to_jsval(f'eval({json.dumps(expr)})') as jsval:
             with jsval.to_json() as jsonval:
                 return json.loads(jsonval.decode())
 
@@ -73,7 +73,7 @@ class _(Base):
     """
 
     def eval(self, expr):
-        with self._api.eval_to_jsval(f'JSON.stringify(eval({json.dumps(expr)}))') as jsval:
+        with self._inst.api.js.eval_to_jsval(f'JSON.stringify(eval({json.dumps(expr)}))') as jsval:
             return json.loads(jsval.decode())
 
 
@@ -86,7 +86,7 @@ class _(Base):
     _bootstrap = 'globalThis.__eval_helper = src => eval(src);'
 
     def eval(self, expr):
-        with self._api.eval_to_jsval(f'__eval_helper({json.dumps(expr)})') as jsval:
+        with self._inst.api.js.eval_to_jsval(f'__eval_helper({json.dumps(expr)})') as jsval:
             return jsval.decode()
 
 
@@ -99,7 +99,7 @@ class _(Base):
     _bootstrap = 'globalThis.__eval_helper = src => eval(src);'
 
     def eval(self, expr):
-        with self._api.eval_to_jsval(f'__eval_helper({json.dumps(expr)})') as jsval:
+        with self._inst.api.js.eval_to_jsval(f'__eval_helper({json.dumps(expr)})') as jsval:
             with jsval.to_json() as jsonval:
                 return json.loads(jsonval.decode())
 
@@ -113,7 +113,7 @@ class _(Base):
     _bootstrap = 'globalThis.__eval_helper = src => JSON.stringify(eval(src));'
 
     def eval(self, expr):
-        with self._api.eval_to_jsval(f'__eval_helper({json.dumps(expr)})') as jsval:
+        with self._inst.api.js.eval_to_jsval(f'__eval_helper({json.dumps(expr)})') as jsval:
             return json.loads(jsval.decode())
 
 
@@ -126,7 +126,7 @@ class _(Base):
     _bootstrap = 'globalThis.__eval_helper = src => ({value: eval(src)});'
 
     def eval(self, expr):
-        with self._api.eval_to_jsval(f'__eval_helper({json.dumps(expr)})') as jsval:
+        with self._inst.api.js.eval_to_jsval(f'__eval_helper({json.dumps(expr)})') as jsval:
             with jsval.to_json() as jsonval:
                 return json.loads(jsonval.decode())['value']
 
@@ -140,7 +140,7 @@ class _(Base):
     _bootstrap = 'globalThis.__eval_helper = src => JSON.stringify({value: eval(src)});'
 
     def eval(self, expr):
-        with self._api.eval_to_jsval(f'__eval_helper({json.dumps(expr)})') as jsval:
+        with self._inst.api.js.eval_to_jsval(f'__eval_helper({json.dumps(expr)})') as jsval:
             return json.loads(jsval.decode())['value']
 
 
@@ -151,10 +151,10 @@ class _(Base):
 
     def __init__(self):
         super().__init__()
-        self._eval = self._api.eval_to_jsval('eval')
+        self._eval = self._inst.api.js.eval_to_jsval('eval')
 
     def eval(self, expr):
-        with self._api.call_to_jsval(self._eval.nanbox, expr) as jsval:
+        with self._inst.api.js.call_to_jsval(self._eval.nanbox, expr) as jsval:
             return jsval.decode()
 
 
@@ -165,10 +165,10 @@ class _(Base):
 
     def __init__(self):
         super().__init__()
-        self._eval_helper = self._api.eval_to_jsval('src => eval(src)')
+        self._eval_helper = self._inst.api.js.eval_to_jsval('src => eval(src)')
 
     def eval(self, expr):
-        with self._api.call_to_jsval(self._eval_helper.nanbox, expr) as jsval:
+        with self._inst.api.js.call_to_jsval(self._eval_helper.nanbox, expr) as jsval:
             return jsval.decode()
 
 
@@ -179,10 +179,10 @@ class _(Base):
 
     def __init__(self):
         super().__init__()
-        self._eval_helper = self._api.eval_to_jsval('src => eval(src)')
+        self._eval_helper = self._inst.api.js.eval_to_jsval('src => eval(src)')
 
     def eval(self, expr):
-        with self._api.call_to_jsval(self._eval_helper.nanbox, expr) as jsval:
+        with self._inst.api.js.call_to_jsval(self._eval_helper.nanbox, expr) as jsval:
             with jsval.to_json() as jsonval:
                 return json.loads(jsonval.decode())
 
@@ -194,10 +194,10 @@ class _(Base):
 
     def __init__(self):
         super().__init__()
-        self._eval_helper = self._api.eval_to_jsval('src => JSON.stringify(eval(src))')
+        self._eval_helper = self._inst.api.js.eval_to_jsval('src => JSON.stringify(eval(src))')
 
     def eval(self, expr):
-        with self._api.call_to_jsval(self._eval_helper.nanbox, expr) as jsval:
+        with self._inst.api.js.call_to_jsval(self._eval_helper.nanbox, expr) as jsval:
             return json.loads(jsval.decode())
 
 
