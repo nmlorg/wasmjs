@@ -95,9 +95,8 @@ class JSValue(lifecycle.PythonOwnedObject):
     def to_cstr(self):
         """Return String(self.nanbox) as a C string."""
 
-        with self.inst.api.memutil.reserve_size_t() as sizet:
-            cstr_offset = self.inst.api.qjs.JS_ToCStringLen2(sizet.offset, self.nanbox, 0)
-            return _CString(inst=self.inst, offset=cstr_offset, utf8_len=sizet.to_int())
+        cstr_offset, utf8_len = self.inst.api.qjs.JS_ToCStringLen2(self.nanbox, 0)
+        return _CString(inst=self.inst, offset=cstr_offset, utf8_len=utf8_len)
 
     def to_json(self):
         """Return JSON.stringify(self.nanbox) as a JSValue."""

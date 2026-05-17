@@ -1,6 +1,6 @@
 [project]
 name = 'wasmjs'
-version = '0.0.14.0.1'  # API 0, QuickJS-NG 0.14.0, code version 1.
+version = '0.0.14.0.2'  # API 0, QuickJS-NG 0.14.0, code version 2.
 description = "Simple wrapper around QuickJS-NG's qjs-wasi-reactor.wasm."
 readme = 'README.md'
 authors = [

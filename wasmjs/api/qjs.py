@@ -8,6 +8,7 @@ class API:  # pylint: disable=invalid-name,missing-function-docstring
         self._inst = inst
         assert inst.exports.qjs_init() == 0
         self._ctx = inst.exports.qjs_get_context()
+        self._sizet = inst.api.memutil.reserve_size_t()
 
     def JS_Call(self, func_nanbox, this_nanbox, argc, argv_offset):
         return self._inst.exports.JS_Call(self._ctx, func_nanbox, this_nanbox, argc, argv_offset)
@@ -29,5 +30,6 @@ class API:  # pylint: disable=invalid-name,missing-function-docstring
     def JS_NewStringLen(self, str1_offset, len1):
         return self._inst.exports.JS_NewStringLen(self._ctx, str1_offset, len1)
 
-    def JS_ToCStringLen2(self, sizet_offset, jsvalue_nanbox, cesu8):
-        return self._inst.exports.JS_ToCStringLen2(self._ctx, sizet_offset, jsvalue_nanbox, cesu8)
+    def JS_ToCStringLen2(self, jsvalue_nanbox, cesu8):
+        return self._inst.exports.JS_ToCStringLen2(self._ctx, self._sizet.offset, jsvalue_nanbox,
+                                                   cesu8), self._sizet.to_int()
