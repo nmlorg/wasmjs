@@ -11,9 +11,9 @@ class API:  # pylint: disable=missing-function-docstring
         assert 0 <= ptr < 2**32
         self._inst.exports.free(ptr)
 
-    def malloc(self, size):
+    def realloc(self, offset, size):
         assert 0 < size < 2**32
-        offset = self._inst.exports.malloc(size)
+        offset = self._inst.exports.realloc(offset, size)
         if offset < 0:
             offset += 2**32
         return offset

@@ -14,9 +14,8 @@ STUB_MODULE = wasmfile.WasmFile(wasm=f"""
   (global $heap_end (export "heap_end") (mut i32) (i32.const 0))
 
   ;; void *malloc(int size)
-  (func $malloc (export "malloc") (param $size i32) (result i32)
+  (func (export "realloc") (param $buf i32) (param $size i32) (result i32)
     (local $header i32)
-    (local $buf i32)
 
     ;; header = heap_end
     (local.set $header (global.get $heap_end))
@@ -38,7 +37,7 @@ STUB_MODULE = wasmfile.WasmFile(wasm=f"""
   )
 
   ;; void free(void *buf)
-  (func $free (export "free") (param $buf i32)
+  (func (export "free") (param $buf i32)
     (local $header i32)
     (local $size i32)
 
@@ -65,13 +64,16 @@ def test_write_string():
         return inst.exports.memory.read(0, inst.exports.heap_end())
 
     inst = STUB_MODULE.instantiate()
+    inst.api.memutil.max_reusable_alloc = 0
+
     assert _allmem() == b''
     with inst.api.memutil.write_string('hello') as hello:
         assert hello.offset == 2
-        assert _allmem() == b'\x06\0hello\0'
+        assert _allmem() == b'\x08\0hello\0\xf9\xf9'
         with inst.api.memutil.write_string('w\u2022rld') as world:
-            assert world.offset == 10
+            assert world.offset == 12
             assert '\u2022'.encode('utf-8') == b'\xe2\x80\xa2'
-            assert _allmem() == b'\x06\0hello\0\x08\0w\xe2\x80\xa2rld\0'
-        assert _allmem() == b'\x06\0hello\0\xfc\xfb\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa'
-    assert _allmem() == b'\xfc\xfb\xfa\xfa\xfa\xfa\xfa\xfa\xfc\xfb\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa'
+            assert _allmem() == b'\x08\0hello\0\xf9\xf9\x08\0w\xe2\x80\xa2rld\0'
+        assert _allmem() == b'\x08\0hello\0\xf9\xf9\xfc\xfb\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa'
+    assert _allmem(
+    ) == b'\xfc\xfb\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfc\xfb\xfa\xfa\xfa\xfa\xfa\xfa\xfa\xfa'

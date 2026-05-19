@@ -1,6 +1,6 @@
 [project]
 name = 'wasmjs'
-version = '0.0.14.0.2'  # API 0, QuickJS-NG 0.14.0, code version 2.
+version = '0.0.14.0.3'  # API 0, QuickJS-NG 0.14.0, code version 3.
 description = "Simple wrapper around QuickJS-NG's qjs-wasi-reactor.wasm."
 readme = 'README.md'
 authors = [
@@ -36,6 +36,7 @@ source-roots = ['.']
 
 [tool.pylint.'MESSAGES CONTROL']
 disable = [
+    'consider-using-min-builtin',
     'consider-using-ternary',
     'no-member',
     'too-few-public-methods',

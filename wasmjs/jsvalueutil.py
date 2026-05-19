@@ -62,7 +62,7 @@ class JSValue(lifecycle.PythonOwnedObject):
             return cls(inst=inst, nanbox=_Union64(f64=value).i64 - JS_FLOAT64_BIAS)
         if isinstance(value, str):
             with inst.api.memutil.write_string(value) as written:
-                nanbox = inst.api.qjs.JS_NewStringLen(written.offset, written.size - 1)
+                nanbox = inst.api.qjs.JS_NewStringLen(written.offset, written.datalen - 1)
             return cls(inst=inst, nanbox=nanbox)
         return inst.api.js.eval_to_jsval(json.dumps(value))
 
@@ -95,7 +95,9 @@ class JSValue(lifecycle.PythonOwnedObject):
     def to_cstr(self):
         """Return String(self.nanbox) as a C string."""
 
-        cstr_offset, utf8_len = self.inst.api.qjs.JS_ToCStringLen2(self.nanbox, 0)
+        with self.inst.api.memutil.reserve(self.inst.exports.memory.pointer_size) as sizet:
+            cstr_offset = self.inst.api.qjs.JS_ToCStringLen2(sizet.offset, self.nanbox, 0)
+            utf8_len = int.from_bytes(sizet.read(), 'little')
         return _CString(inst=self.inst, offset=cstr_offset, utf8_len=utf8_len)
 
     def to_json(self):
