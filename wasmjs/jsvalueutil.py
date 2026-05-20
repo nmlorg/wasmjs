@@ -64,7 +64,7 @@ class JSValue(lifecycle.PythonOwnedObject):
             with inst.api.memutil.write_string(value) as written:
                 nanbox = inst.api.qjs.JS_NewStringLen(written.offset, written.datalen - 1)
             return cls(inst=inst, nanbox=nanbox)
-        return inst.api.js.eval_to_jsval(json.dumps(value))
+        return inst.api.js.eval_to_jsval(_json_dumps(value))
 
     def decode(self):
         """Convert this to a Python data type, pulling from linear memory if necessary."""
@@ -133,3 +133,7 @@ class _Union64(ctypes.Union):
         ('f64', ctypes.c_double),
         ('i64', ctypes.c_int64),
     )
+
+
+def _json_dumps(val):
+    return json.dumps(val, separators=(',', ':'))
