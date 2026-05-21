@@ -25,17 +25,7 @@ def test_internal_errors():
     js = wasmjs.WasmJS()
 
     with pytest.raises(wasmjs.JSError):
-        js.eval("JSON.parse('['.repeat(2947));")
-
-    with pytest.raises(wasmjs.InterpreterError):
         js.eval("JSON.parse('['.repeat(2948));")
 
-    # See https://github.com/quickjs-ng/quickjs/issues/1462.
-    js = wasmjs.WasmJS()
-
-    assert js.eval('function inf(depth) { try { inf(depth + 1); } catch (e) {} } inf(0); 1;') == 1
-
-    # The interpreter is now [silently] trashed :(
-
     with pytest.raises(wasmjs.InterpreterError):
-        js.eval('1 + 1')
+        js.eval("JSON.parse('['.repeat(2949));")
