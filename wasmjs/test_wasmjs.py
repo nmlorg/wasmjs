@@ -1,5 +1,7 @@
 """Tests for wasmjs.wasmjs."""
 
+import types
+
 import pytest
 
 from wasmjs import wasmjs
@@ -14,8 +16,76 @@ def test_basic():
     assert js.eval('function test(a, b) { return a * b; }; test(2, 3);') == 6
     assert js.eval('({hello: 5});') == {'hello': 5}
 
-    with pytest.raises(wasmjs.JSError):
+    with pytest.raises(wasmjs.JSError, check=lambda e: e.name == 'SyntaxError'):
         js.eval('1 +')
+
+    # Stub values are hidden.
+    with pytest.raises(wasmjs.JSError, check=lambda e: e.name == 'ReferenceError'):
+        js.eval('next_generator_id')
+
+    # Local variables are not persisted.
+    assert js.eval('let test_basic_num = 1000; test_basic_num;') == 1000
+    with pytest.raises(wasmjs.JSError, check=lambda e: e.name == 'ReferenceError'):
+        js.eval('test_basic_num')
+
+
+def test_generator():
+    """Verify that JS generators can be accessed like Python gens, but behave like JS gens."""
+
+    js = wasmjs.WasmJS()
+    js.eval("""
+      globalThis.gengen = function*(a) {
+        let b = yield `a=${a}`;
+        let c = yield `b=${b}`;
+        let d = yield `c=${c}`;
+        return `d=${d}`;
+      };
+    """)
+
+    # Implicit listification.
+    assert js.eval('Array.from(gengen(5))') == ['a=5', 'b=undefined', 'c=undefined']
+    assert list(js.eval('gengen(5)')) == ['a=5', 'b=null', 'c=null']
+
+    # Manual running.
+    assert js.eval("""
+      let gen = gengen(10);
+      let ret = [];
+      ret.push(gen.next(999));
+      ret.push(gen.next(20));
+      ret.push(gen.next(30));
+      ret.push(gen.next(40));
+      ret.push(gen.next(999));
+      JSON.stringify(ret);
+    """) == """[
+      {"value":"a=10","done":false},
+      {"value":"b=20","done":false},
+      {"value":"c=30","done":false},
+      {"value":"d=40","done":true},
+      {"done":true}
+    ]""".replace(' ', '').replace('\n', '')
+
+    susp = js.eval('gengen(10)')
+    assert isinstance(susp, types.GeneratorType)
+    assert susp.send(None) == 'a=10'
+    assert susp.send(20) == 'b=20'
+    assert susp.send(30) == 'c=30'
+    with pytest.raises(StopIteration, check=lambda e: e.value == 'd=40'):
+        susp.send(40)
+    with pytest.raises(StopIteration, check=lambda e: e.value is None):
+        susp.send(999)
+
+    # A couple edge cases that tripped me up while designing this.
+    susp = js.eval('function* f() {}; f();')
+    assert isinstance(susp, types.GeneratorType)
+    assert list(susp) == []  # pylint: disable=use-implicit-booleaness-not-comparison
+
+    susp = js.eval('function* f() { yield 1; }; f();')
+    assert isinstance(susp, types.GeneratorType)
+    assert list(susp) == [1]
+
+    susp = js.eval('function* f() { yield 1; yield 2; }; f();')
+    assert isinstance(susp, types.GeneratorType)
+    assert list(susp) == [1, 2]
 
 
 def test_internal_errors():
@@ -25,7 +95,7 @@ def test_internal_errors():
     js = wasmjs.WasmJS()
 
     with pytest.raises(wasmjs.JSError):
-        js.eval("JSON.parse('['.repeat(2948));")
+        js.eval("JSON.parse('['.repeat(2941));")
 
     with pytest.raises(wasmjs.InterpreterError):
-        js.eval("JSON.parse('['.repeat(2949));")
+        js.eval("JSON.parse('['.repeat(2942));")
