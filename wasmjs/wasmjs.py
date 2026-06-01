@@ -28,6 +28,7 @@ class WasmJS:
       {
         let generators = new Map();
         let next_generator_id = 0;
+        let replacer_sentinel = {toJSON() {}};
 
         function wrap(fn, ...args) {
           try {
@@ -43,8 +44,10 @@ class WasmJS:
           if (Object.prototype.toString.call(value) == '[object Generator]') {
             let id = next_generator_id++;
             generators.set(id, value);
-            return {'__generator__': id};
+            return {'#': {type: 'generator', value: id, replacer_sentinel}};
           }
+          if ((key == '#') && (value?.replacer_sentinel !== replacer_sentinel))
+            return {value};
           return value;
         }
 
@@ -79,8 +82,15 @@ class WasmJS:
         return data
 
     def _object_hook(self, obj):
-        if len(obj) == 1 and next(iter(obj.keys())) == '__generator__':
-            return self._run_generator(next(iter(obj.values())))
+        if not isinstance(data := obj.get('#'), dict):
+            return obj
+
+        # {'#': {'type': 'generator', 'value': id}} -> run_generator(id)
+        if data.get('type') == 'generator':
+            return self._run_generator(data['value'])
+
+        # {'#': {'value': 1}, 'extra': 2} -> {'#': 1, 'extra': 2}
+        obj['#'] = data['value']
         return obj
 
     def _run_generator(self, genid):
