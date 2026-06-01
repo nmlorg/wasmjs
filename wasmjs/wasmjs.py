@@ -26,14 +26,13 @@ class WasmJS:
 
     _bootstrap = """
       {
-        let indirect_eval = eval;
         let generators = new Map();
         let next_generator_id = 0;
 
-        function do_eval(src) {
+        function wrap(fn, ...args) {
           let value;
           try {
-            value = indirect_eval(src);
+            value = fn(...args);
           } catch (e) {
             if (!(e instanceof Error))
               e = new Error(e);
@@ -53,13 +52,13 @@ class WasmJS:
 
         globalThis.__wasmjs = {
           eval(expr) {
-            return JSON.stringify(do_eval(expr));
+            return JSON.stringify(wrap(eval, expr));
           },
           generator_next(id, value) {
-            let generator = generators.get(id).next(value);
-            if (generator.done)
+            let data = wrap(() => generators.get(id).next(value));
+            if (!data.ok || data.value.done)
               generators.delete(id);
-            return JSON.stringify({ok: true, generator});
+            return JSON.stringify(data);
           }
         };
       }
@@ -91,7 +90,7 @@ class WasmJS:
                 return generator.get('value')
             incoming = yield generator['value']
             generator = self._eval(
-                f'__wasmjs.generator_next({genid}, {_json_dumps(incoming)})')['generator']
+                f'__wasmjs.generator_next({genid}, {_json_dumps(incoming)})')['value']
 
 
 class JSError(Exception):
