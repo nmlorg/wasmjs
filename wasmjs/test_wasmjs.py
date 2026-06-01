@@ -74,7 +74,12 @@ def test_generator():
     with pytest.raises(StopIteration, check=lambda e: e.value is None):
         susp.send(999)
 
-    # A couple edge cases that tripped me up while designing this.
+
+def test_generator_edges():
+    """Test a couple edge cases that tripped me up while designing this."""
+
+    js = wasmjs.WasmJS()
+
     susp = js.eval('function* f() {}; f();')
     assert isinstance(susp, types.GeneratorType)
     assert list(susp) == []  # pylint: disable=use-implicit-booleaness-not-comparison
@@ -87,13 +92,59 @@ def test_generator():
     assert isinstance(susp, types.GeneratorType)
     assert list(susp) == [1, 2]
 
+
+def test_generator_exceptions():
+    """Test exception propagation."""
+
+    js = wasmjs.WasmJS()
+
     susp = js.eval('function* f() { yield 1; yield bogus; }; f();')
     assert isinstance(susp, types.GeneratorType)
-    assert susp.send(None) == 1
+    assert next(susp) == 1
     with pytest.raises(wasmjs.JSError, check=lambda e: e.name == 'ReferenceError'):
-        susp.send(None)
+        next(susp)
     with pytest.raises(StopIteration, check=lambda e: e.value is None):
-        susp.send(None)
+        next(susp)
+
+
+def test_generator_interweave():
+    """Verify concurrent generators behave as expected."""
+
+    js = wasmjs.WasmJS()
+
+    fsusp, gsusp = js.eval("""
+      let count = 0;
+      function* f() { yield ++count; yield ++count; yield ++count; }
+      function* g() { yield ++count; yield ++count; yield ++count; }
+      [f(), g()];
+    """)
+    assert isinstance(fsusp, types.GeneratorType)
+    assert isinstance(gsusp, types.GeneratorType)
+    assert next(gsusp) == 1
+    assert next(gsusp) == 2
+    assert next(fsusp) == 3
+    assert next(gsusp) == 4
+    assert next(fsusp) == 5
+    assert next(fsusp) == 6
+
+    susp = js.eval("""
+      let count = 0;
+      function* f() { yield ++count; yield ++count; yield ++count; }
+      function* g() { yield ++count; yield ++count; yield ++count; }
+      function* h() { yield f(); yield g(); }
+      h();
+    """)
+    assert isinstance(susp, types.GeneratorType)
+    fsusp = next(susp)
+    assert isinstance(fsusp, types.GeneratorType)
+    assert next(fsusp) == 1
+    gsusp = next(susp)
+    assert isinstance(gsusp, types.GeneratorType)
+    assert next(fsusp) == 2
+    assert next(gsusp) == 3
+    assert next(fsusp) == 4
+    assert next(gsusp) == 5
+    assert next(gsusp) == 6
 
 
 def test_internal_errors():

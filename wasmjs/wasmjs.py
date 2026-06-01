@@ -30,35 +30,33 @@ class WasmJS:
         let next_generator_id = 0;
 
         function wrap(fn, ...args) {
-          let value;
           try {
-            value = fn(...args);
+            return {ok: true, value: fn(...args)};
           } catch (e) {
             if (!(e instanceof Error))
               e = new Error(e);
             return {ok: false, message: e.message, name: e.name, stack: e.stack};
           }
+        }
+
+        function replacer(key, value) {
           if (Object.prototype.toString.call(value) == '[object Generator]') {
-            let generator = value.next();
-            if (!generator.done) {
-              let id = next_generator_id++;
-              generator.id = id;
-              generators.set(id, value);
-            }
-            return {ok: true, generator};
+            let id = next_generator_id++;
+            generators.set(id, value);
+            return {'__generator__': id};
           }
-          return {ok: true, value};
+          return value;
         }
 
         globalThis.__wasmjs = {
           eval(expr) {
-            return JSON.stringify(wrap(eval, expr));
+            return JSON.stringify(wrap(eval, expr), replacer);
           },
           generator_next(id, value) {
             let data = wrap(() => generators.get(id).next(value));
             if (!data.ok || data.value.done)
               generators.delete(id);
-            return JSON.stringify(data);
+            return JSON.stringify(data, replacer);
           }
         };
       }
@@ -67,15 +65,12 @@ class WasmJS:
     def eval(self, expr):
         """Evaluate `expr` as a JavaScript expression."""
 
-        data = self._eval(f'__wasmjs.eval({_json_dumps(expr)})')
-        if (generator := data.get('generator')):
-            return self._run_generator(generator)
-        return data.get('value')
+        return self._eval(f'__wasmjs.eval({_json_dumps(expr)})').get('value')
 
     def _eval(self, expr):
         try:
             with self._inst.api.js.eval_to_jsval(expr) as jsval:
-                data = json.loads(jsval.to_string())
+                data = json.loads(jsval.to_string(), object_hook=self._object_hook)
         except wasmfile.wasmtime.Trap as e:
             raise InterpreterError() from e
         if not data['ok']:
@@ -83,14 +78,18 @@ class WasmJS:
             raise JSError(**data)
         return data
 
-    def _run_generator(self, generator):
-        genid = generator.get('id')
+    def _object_hook(self, obj):
+        if len(obj) == 1 and next(iter(obj.keys())) == '__generator__':
+            return self._run_generator(next(iter(obj.values())))
+        return obj
+
+    def _run_generator(self, genid):
+        incoming = None
         while True:
-            if generator['done']:
-                return generator.get('value')
-            incoming = yield generator['value']
-            generator = self._eval(
-                f'__wasmjs.generator_next({genid}, {_json_dumps(incoming)})')['value']
+            step = self._eval(f'__wasmjs.generator_next({genid}, {_json_dumps(incoming)})')['value']
+            if step['done']:
+                return step.get('value')
+            incoming = yield step['value']
 
 
 class JSError(Exception):
