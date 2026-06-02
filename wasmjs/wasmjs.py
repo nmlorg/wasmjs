@@ -68,7 +68,7 @@ class WasmJS:
     def eval(self, expr):
         """Evaluate `expr` as a JavaScript expression."""
 
-        return self._eval(f'__wasmjs.eval({_json_dumps(expr)})').get('value')
+        return self._eval(f'__wasmjs.eval({_json_dumps(expr)})')
 
     def _eval(self, expr):
         try:
@@ -79,7 +79,7 @@ class WasmJS:
         if not data['ok']:
             data.pop('ok')
             raise JSError(**data)
-        return data
+        return data.get('value')
 
     def _object_hook(self, obj):
         if not isinstance(data := obj.get('#'), dict):
@@ -96,7 +96,7 @@ class WasmJS:
     def _run_generator(self, genid):
         incoming = None
         while True:
-            step = self._eval(f'__wasmjs.generator_next({genid}, {_json_dumps(incoming)})')['value']
+            step = self._eval(f'__wasmjs.generator_next({genid}, {_json_dumps(incoming)})')
             if step['done']:
                 return step.get('value')
             incoming = yield step['value']
