@@ -32,19 +32,23 @@ class WasmJS:
 
         function wrap(fn, ...args) {
           try {
-            return {ok: true, value: fn(...args)};
-          } catch (e) {
-            if (!(e instanceof Error))
-              e = new Error(e);
-            return {ok: false, message: e.message, name: e.name, stack: e.stack};
+            return {value: fn(...args)};
+          } catch (error) {
+            if (!(error instanceof Error))
+              error = new Error(error);
+            return {error};
           }
         }
 
         function replacer(key, value) {
+          if (value instanceof Error) {
+            let {message, name, stack} = value;
+            return {'#': {type: 'Error', message, name, stack, replacer_sentinel}};
+          }
           if (Object.prototype.toString.call(value) == '[object Generator]') {
             let id = next_generator_id++;
             generators.set(id, value);
-            return {'#': {type: 'generator', value: id, replacer_sentinel}};
+            return {'#': {type: 'Generator', id, replacer_sentinel}};
           }
           if ((key == '#') && (value?.replacer_sentinel !== replacer_sentinel))
             return {value};
@@ -57,7 +61,7 @@ class WasmJS:
           },
           generator_next(id, value) {
             let data = wrap(() => generators.get(id).next(value));
-            if (!data.ok || data.value.done)
+            if (data.error || data.value.done)
               generators.delete(id);
             return JSON.stringify(data, replacer);
           }
@@ -73,33 +77,37 @@ class WasmJS:
     def _eval(self, expr):
         try:
             with self._inst.api.js.eval_to_jsval(expr) as jsval:
-                data = json.loads(jsval.to_string(), object_hook=self._object_hook)
+                datastr = jsval.to_string()
         except wasmfile.wasmtime.Trap as e:
             raise InterpreterError() from e
-        if not data['ok']:
-            data.pop('ok')
-            raise JSError(**data)
+
+        data = json.loads(datastr, object_hook=self._object_hook)
+        if (error := data.get('error')):
+            raise error
         return data.get('value')
 
     def _object_hook(self, obj):
         if not isinstance(data := obj.get('#'), dict):
             return obj
 
-        # {'#': {'type': 'generator', 'value': id}} -> run_generator(id)
-        if data.get('type') == 'generator':
-            return self._run_generator(data['value'])
-
-        # {'#': {'value': 1}, 'extra': 2} -> {'#': 1, 'extra': 2}
-        obj['#'] = data['value']
-        return obj
+        match data.pop('type', None):
+            case 'Error':
+                return JSError(**data)
+            case 'Generator':
+                return self._run_generator(data['id'])
+            case objtype:
+                assert objtype is None
+                obj['#'] = data['value']
+                return obj
 
     def _run_generator(self, genid):
         incoming = None
         while True:
             step = self._eval(f'__wasmjs.generator_next({genid}, {_json_dumps(incoming)})')
+            value = step.get('value')
             if step['done']:
-                return step.get('value')
-            incoming = yield step['value']
+                return value
+            incoming = yield value
 
 
 class JSError(Exception):
