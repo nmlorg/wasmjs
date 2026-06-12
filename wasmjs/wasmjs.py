@@ -73,6 +73,17 @@ class WasmJS:
               generators.delete(id);
             return JSON.stringify(data, replacer);
           },
+
+          generator_throw(id, value) {
+            let error = new Error(value.message);
+            error.name = value.name;
+            let data = wrap(() => generators.get(id).throw(error));
+            if (data.error || data.value.done)
+              generators.delete(id);
+            if (data.error === error)
+              data = {value: {reraise: true}};
+            return JSON.stringify(data, replacer);
+          },
         };
       }
     """
@@ -118,12 +129,26 @@ class WasmJS:
 
     def _run_generator(self, genid):
         incoming = None
+        last_exception = None
+        method = 'next'
         while True:
-            step = self._eval(f'__wasmjs.generator_next({genid}, {_json_dumps(incoming)})')
+            step = self._eval(f'__wasmjs.generator_{method}({genid}, {_json_dumps(incoming)})')
+            if step.get('reraise'):
+                raise last_exception  # pylint: disable=raising-bad-type
             value = step.get('value')
             if step['done']:
                 return value
-            incoming = yield value
+            try:
+                incoming = yield value
+                last_exception = None
+                method = 'next'
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                incoming = {
+                    'message': str(e),
+                    'name': type(e).__name__,
+                }
+                last_exception = e
+                method = 'throw'
 
 
 class JSError(Exception):

@@ -106,6 +106,38 @@ def test_generator_exceptions():
     with pytest.raises(StopIteration, check=lambda e: e.value is None):
         next(susp)
 
+    class _MyExceptionType(Exception):
+        pass
+
+    boom = _MyExceptionType('boom')
+
+    # Handled exceptions do not interrupt generation.
+    susp = js.eval(
+        'function* f() { try { yield 1; } catch (e) { yield `caught ${e}`; } yield 2; }; f();')
+    assert next(susp) == 1
+    assert susp.throw(boom) == 'caught _MyExceptionType: boom'
+    assert next(susp) == 2
+
+    # Uncaught exceptions pass through unmodified.
+    susp = js.eval('function* f() { yield 1; yield 2; }; f();')
+    assert next(susp) == 1
+    with pytest.raises(_MyExceptionType, check=lambda e: e is boom):
+        susp.throw(boom)
+    with pytest.raises(StopIteration):
+        next(susp)
+
+    # Exceptions raised while handling an exception behave the same as exceptions raised under any
+    # other circumstances.
+    susp = js.eval(
+        'function* f() { try { yield 1; } catch (e) { throw `caught ${e}`; } yield 2; }; f();')
+    assert next(susp) == 1
+    with pytest.raises(wasmjs.JSError,
+                       check=lambda e: (e.name, e.message) ==
+                       ('Error', 'caught _MyExceptionType: boom')):
+        susp.throw(boom)
+    with pytest.raises(StopIteration):
+        next(susp)
+
 
 def test_generator_interweave():
     """Verify concurrent generators behave as expected."""
