@@ -17,3 +17,20 @@ class PythonOwnedObject:
         """Call the object-specific deallocator."""
 
         raise NotImplementedError()  # pragma: no cover
+
+
+def run_at_generator_exit(gen, close):
+    """Run close() iff gen is closed or discarded before throwing or returning."""
+
+    subgen = _run_at_generator_exit_helper(gen, close)
+    next(subgen)
+    return subgen
+
+
+def _run_at_generator_exit_helper(gen, close):
+    try:
+        yield
+        return (yield from gen)
+    except GeneratorExit:
+        close()
+        raise

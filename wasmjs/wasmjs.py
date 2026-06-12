@@ -3,6 +3,7 @@
 import importlib.resources
 import json
 
+from wasmjs import lifecycle
 from wasmjs import wasmfile
 
 
@@ -57,14 +58,21 @@ class WasmJS:
 
         globalThis.__wasmjs = {
           eval(expr) {
-            return JSON.stringify(wrap(eval, expr), replacer);
+            let data = wrap(eval, expr);
+            return JSON.stringify(data, replacer);
           },
+
+          generator_close(id) {
+            let data = {value: generators.delete(id)};
+            return JSON.stringify(data, replacer);
+          },
+
           generator_next(id, value) {
             let data = wrap(() => generators.get(id).next(value));
             if (data.error || data.value.done)
               generators.delete(id);
             return JSON.stringify(data, replacer);
-          }
+          },
         };
       }
     """
@@ -94,11 +102,19 @@ class WasmJS:
             case 'Error':
                 return JSError(**data)
             case 'Generator':
-                return self._run_generator(data['id'])
+                return self._run_generator_wrapper(data['id'])
             case objtype:
                 assert objtype is None
                 obj['#'] = data['value']
                 return obj
+
+    def _run_generator_wrapper(self, genid):
+
+        def _close():
+            ret = self._eval(f'__wasmjs.generator_close({genid})')
+            assert ret
+
+        return lifecycle.run_at_generator_exit(self._run_generator(genid), _close)
 
     def _run_generator(self, genid):
         incoming = None
