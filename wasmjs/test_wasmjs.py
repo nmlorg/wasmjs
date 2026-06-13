@@ -49,7 +49,7 @@ def test_internal_errors():
     js = wasmjs.WasmJS()
 
     with pytest.raises(wasmjs.JSError):
-        js.eval("JSON.parse('['.repeat(2940));")
+        js.eval("JSON.parse('['.repeat(2936));")
 
     with pytest.raises(wasmjs.InterpreterError):
-        js.eval("JSON.parse('['.repeat(2941));")
+        js.eval("JSON.parse('['.repeat(2937));")

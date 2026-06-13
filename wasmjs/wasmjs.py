@@ -58,29 +58,24 @@ class WasmJS:
 
         globalThis.__wasmjs = {
           eval(expr) {
-            let data = wrap(eval, expr);
-            return JSON.stringify(data, replacer);
+            return wrap(eval, expr);
           },
 
           generator_close(id) {
             let gen = generators.get(id);
-            let data;
-            if (gen === undefined) {
-              data = {value: false};
-            } else {
-              data = wrap(() => gen.return());
-              while (!data.error && !data.value.done)
-                data = wrap(() => gen.next());
-              data = {value: true};
-            }
-            return JSON.stringify(data, replacer);
+            if (gen === undefined)
+              return {value: false};
+            let data = wrap(() => gen.return());
+            while (!data.error && !data.value.done)
+              data = wrap(() => gen.next());
+            return {value: true};
           },
 
           generator_next(id, value) {
             let data = wrap(() => generators.get(id).next(value));
             if (data.error || data.value.done)
               generators.delete(id);
-            return JSON.stringify(data, replacer);
+            return data;
           },
 
           generator_throw(id, value) {
@@ -90,10 +85,13 @@ class WasmJS:
             if (data.error || data.value.done)
               generators.delete(id);
             if (data.error === error)
-              data = {value: {reraise: true}};
-            return JSON.stringify(data, replacer);
+              return {value: {reraise: true}};
+            return data;
           },
         };
+
+        for (let [k, v] of Object.entries(__wasmjs))
+          __wasmjs[k] = (...args) => JSON.stringify(v(...args), replacer);
       }
     """
 
