@@ -7,7 +7,7 @@ import pytest
 from wasmjs import wasmjs
 
 
-def test_generator():
+def test_basic():
     """Verify that JS generators can be accessed like Python gens, but behave like JS gens."""
 
     js = wasmjs.WasmJS()
@@ -53,7 +53,7 @@ def test_generator():
         susp.send(999)
 
 
-def test_generator_edges():
+def test_edges():
     """Test a couple edge cases that tripped me up while designing this."""
 
     js = wasmjs.WasmJS()
@@ -71,7 +71,7 @@ def test_generator_edges():
     assert list(susp) == [1, 2]
 
 
-def test_generator_exceptions():
+def test_exceptions():
     """Test exception propagation."""
 
     js = wasmjs.WasmJS()
@@ -117,7 +117,7 @@ def test_generator_exceptions():
         next(susp)
 
 
-def test_generator_interweave():
+def test_interweave():
     """Verify concurrent generators behave as expected."""
 
     js = wasmjs.WasmJS()
