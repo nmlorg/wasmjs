@@ -1,8 +1,10 @@
 """Quick timing tests of different potential WasmJS.eval implementations."""
 
+import inspect
 import json
 import logging
 import re
+import textwrap
 import time
 
 from wasmjs import wasmjs
@@ -15,8 +17,7 @@ class _Logger:
         cls._cases.append(cls)
 
 
-class Base(wasmjs.WasmJS, _Logger):
-    """eval_to_jsval(expr)"""
+class _Base(wasmjs.WasmJS, _Logger):
 
     def __init__(self):
         super().__init__()
@@ -31,10 +32,7 @@ class Base(wasmjs.WasmJS, _Logger):
             return jsval.decode()
 
 
-# pylint: disable=function-redefined
-
-class _(Base):
-    """json.loads(JSONStringify(eval_to_jsval(expr)))"""
+class _1(_Base):
 
     def eval(self, expr):
         with self._inst.api.js.eval_to_jsval(expr) as jsval:
@@ -42,30 +40,21 @@ class _(Base):
                 return json.loads(jsonval.decode())
 
 
-class _(Base):
-    """s = f'JSON.stringify({expr})'
-       json.loads(eval_to_jsval(s))
-    """
+class _2(_Base):
 
     def eval(self, expr):
         with self._inst.api.js.eval_to_jsval(f'JSON.stringify({expr})') as jsval:
             return json.loads(jsval.decode())
 
 
-class _(Base):
-    """s = f'eval({json.dumps(expr)})'
-       eval_to_jsval(s)
-    """
+class _3(_Base):
 
     def eval(self, expr):
         with self._inst.api.js.eval_to_jsval(f'eval({json.dumps(expr)})') as jsval:
             return jsval.decode()
 
 
-class _(Base):
-    """s = f'eval({json.dumps(expr)})'
-       json.loads(JSONStringify(eval_to_jsval(s))
-    """
+class _4(_Base):
 
     def eval(self, expr):
         with self._inst.api.js.eval_to_jsval(f'eval({json.dumps(expr)})') as jsval:
@@ -73,22 +62,14 @@ class _(Base):
                 return json.loads(jsonval.decode())
 
 
-class _(Base):
-    """s = f'JSON.stringify(eval({json.dumps(expr)}))'
-       json.loads(eval_to_jsval(s))
-    """
+class _5(_Base):
 
     def eval(self, expr):
         with self._inst.api.js.eval_to_jsval(f'JSON.stringify(eval({json.dumps(expr)}))') as jsval:
             return json.loads(jsval.decode())
 
 
-class _(Base):
-    """[__eval_helper = src => eval(src)]
-       s = f'__eval_helper({json.dumps(expr)})'
-       eval_to_jsval(s)
-    """
-
+class _6(_Base):
     _bootstrap = 'globalThis.__eval_helper = src => eval(src);'
 
     def eval(self, expr):
@@ -96,12 +77,7 @@ class _(Base):
             return jsval.decode()
 
 
-class _(Base):
-    """[__eval_helper = src => eval(src)]
-       s = f'__eval_helper({json.dumps(expr)})'
-       json.loads(JSONStringify(eval_to_jsval(s)))
-    """
-
+class _7(_Base):
     _bootstrap = 'globalThis.__eval_helper = src => eval(src);'
 
     def eval(self, expr):
@@ -110,12 +86,7 @@ class _(Base):
                 return json.loads(jsonval.decode())
 
 
-class _(Base):
-    """[__eval_helper = src => JSON.stringify(eval(src))]
-       s = f'__eval_helper({json.dumps(expr)})'
-       json.loads(eval_to_jsval(s))
-    """
-
+class _8(_Base):
     _bootstrap = 'globalThis.__eval_helper = src => JSON.stringify(eval(src));'
 
     def eval(self, expr):
@@ -123,12 +94,7 @@ class _(Base):
             return json.loads(jsval.decode())
 
 
-class _(Base):
-    """[__eval_helper = src => ({value: eval(src)})]
-       s = f'__eval_helper({json.dumps(expr)})'
-       json.loads(JSONStringify(eval_to_jsval(s)))['value']
-    """
-
+class _9(_Base):
     _bootstrap = 'globalThis.__eval_helper = src => ({value: eval(src)});'
 
     def eval(self, expr):
@@ -137,12 +103,7 @@ class _(Base):
                 return json.loads(jsonval.decode())['value']
 
 
-class _(Base):
-    """[__eval_helper = src => JSON.stringify({value: eval(src)})]
-       s = f'__eval_helper({json.dumps(expr)})'
-       json.loads(eval_to_jsval(s))['value']
-    """
-
+class _10(_Base):
     _bootstrap = 'globalThis.__eval_helper = src => JSON.stringify({value: eval(src)});'
 
     def eval(self, expr):
@@ -150,11 +111,7 @@ class _(Base):
             return json.loads(jsval.decode())['value']
 
 
-class _(Base):
-    """_helper = [eval]
-       call_to_jsval(_helper, expr)
-    """
-
+class _11(_Base):
     _helper_expr = 'eval'
 
     def eval(self, expr):
@@ -162,11 +119,7 @@ class _(Base):
             return jsval.decode()
 
 
-class _(Base):
-    """_helper = [src => eval(src)]
-       call_to_jsval(_helper, expr)
-    """
-
+class _12(_Base):
     _helper_expr = 'src => eval(src)'
 
     def eval(self, expr):
@@ -174,11 +127,7 @@ class _(Base):
             return jsval.decode()
 
 
-class _(Base):
-    """_helper = [src => eval(src)]
-       json.loads(JSONStringify(call_to_jsval(_helper, expr)))
-    """
-
+class _13(_Base):
     _helper_expr = 'src => eval(src)'
 
     def eval(self, expr):
@@ -187,11 +136,7 @@ class _(Base):
                 return json.loads(jsonval.decode())
 
 
-class _(Base):
-    """_helper = [src => JSON.stringify(eval(src))]
-       json.loads(call_to_jsval(_helper, expr))
-    """
-
+class _14(_Base):
     _helper_expr = 'src => JSON.stringify(eval(src))'
 
     def eval(self, expr):
@@ -209,20 +154,26 @@ def main():  # pylint: disable=missing-function-docstring
     expr = '1 + 2'
     num = 10000
     trials = []
-    for cls in Base._cases:  # pylint: disable=protected-access
-        logging.info('Testing %s.', re.sub('\n *', '; ', cls.__doc__.strip()))
+    # pylint: disable=protected-access
+    for cls in _Base._cases:
+        source = textwrap.dedent('\n'.join(inspect.getsource(cls.eval).splitlines()[1:]))
+        if cls._helper_expr:
+            source = f'_helper = eval({repr(cls._helper_expr)})\n{source}'
+        if cls._bootstrap:
+            source = f'eval({repr(cls._bootstrap)})\n{source}'
+        logging.info('Testing %s.', re.sub('\n[\n ]*', '; ', source.strip()).replace(':;', ':'))
         js = cls()
         start = time.time()
         for _ in range(num):
             assert js.eval(expr) == 3
         end = time.time()
         logging.info('=== %s', end - start)
-        trials.append((end - start, cls.__doc__))
+        trials.append(((end - start) / num, source))
 
-    for duration, doc in sorted(trials):
-        for line in doc.strip().splitlines():
-            print(f'- {line.strip()}')
-        print(f'=== {int(1_000_000 * duration / num)} \xb5s')
+    for calltime, source in sorted(trials):
+        for line in source.splitlines():
+            print(f'- {line}')
+        print(f'=== {int(1_000_000 * calltime)} \xb5s')
 
 
 if __name__ == '__main__':
