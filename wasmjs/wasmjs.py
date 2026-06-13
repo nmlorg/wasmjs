@@ -63,7 +63,16 @@ class WasmJS:
           },
 
           generator_close(id) {
-            let data = {value: generators.delete(id)};
+            let gen = generators.get(id);
+            let data;
+            if (gen === undefined) {
+              data = {value: false};
+            } else {
+              data = wrap(() => gen.return());
+              while (!data.error && !data.value.done)
+                data = wrap(() => gen.next());
+              data = {value: true};
+            }
             return JSON.stringify(data, replacer);
           },
 

@@ -71,6 +71,74 @@ def test_edges():
     assert list(susp) == [1, 2]
 
 
+def test_close():
+    """Verify that generators properly clean up when discarded."""
+
+    snippet = """
+      globalThis.began = false;
+      globalThis.finalized = false;
+      function* f() {
+        try {
+          globalThis.began = true;
+          yield 1;
+        } finally {
+          globalThis.finalized = true;
+        }
+      }
+      f();
+    """
+
+    # Running a generator all the way through triggers the finally block.
+    js = wasmjs.WasmJS()
+    susp = js.eval(snippet)
+    assert js.eval('[began, finalized]') == [False, False]
+    assert next(susp) == 1
+    assert js.eval('[began, finalized]') == [True, False]
+    with pytest.raises(StopIteration):
+        next(susp)
+    assert js.eval('[began, finalized]') == [True, True]
+
+    # Beginning a generator and then discarding it also triggers the finally block.
+    js = wasmjs.WasmJS()
+    susp = js.eval(snippet)
+    assert js.eval('[began, finalized]') == [False, False]
+    assert next(susp) == 1
+    assert js.eval('[began, finalized]') == [True, False]
+    susp = None
+    assert js.eval('[began, finalized]') == [True, True]
+
+    # Just like Python generators, discarding an un-begun JS generator doesn't magically advance
+    # into try blocks.
+    js = wasmjs.WasmJS()
+    susp = js.eval(snippet)
+    assert js.eval('[began, finalized]') == [False, False]
+    susp = None
+    assert js.eval('[began, finalized]') == [False, False]
+
+    # JS generators are allowed to continue yielding values during a finalization.
+    js = wasmjs.WasmJS()
+    susp = js.eval("""
+      globalThis.finalized = false;
+      globalThis.notreached = false;
+      function* f() {
+        try {
+          yield 1;
+        } finally {
+          yield 2;
+          yield 3;
+          globalThis.finalized = true;
+        }
+        globalThis.notreached = true;
+      }
+      f();
+    """)
+    assert js.eval('[finalized, notreached]') == [False, False]
+    assert next(susp) == 1
+    assert js.eval('[finalized, notreached]') == [False, False]
+    susp = None
+    assert js.eval('[finalized, notreached]') == [True, False]
+
+
 def test_exceptions():
     """Test exception propagation."""
 
