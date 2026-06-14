@@ -77,7 +77,8 @@ class JSValue(lifecycle.PythonOwnedObject):
             case Tag.FLOAT64:
                 return _Union64(i64=self.nanbox + JS_FLOAT64_BIAS).f64
             case Tag.OBJECT:
-                return json.loads(self.to_json().to_string())
+                with self.to_json() as jsonval:
+                    return json.loads(jsonval.to_string())
             case Tag.SHORT_BIG_INT | Tag.INT:
                 return ctypes.c_int32(self.nanbox).value
             case Tag.STRING:
