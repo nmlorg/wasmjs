@@ -42,7 +42,7 @@ def test_jsvalue():
         with inst.api.js.eval_to_jsval(js_expr) as jsval:
             assert jsval.tag == tag
             actual_val = jsval.decode()
-            if expected_val is math.nan:
+            if expected_val is math.nan:  # pylint: disable=nan-comparison
                 assert math.isnan(actual_val)
             else:
                 assert actual_val == expected_val
