@@ -1,4 +1,4 @@
-/*.egg-info/
+/src/*.egg-info/
 /.venv/
 /.coverage
 *.pyc

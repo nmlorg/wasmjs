@@ -1,7 +1,7 @@
 cd $(dirname $BASH_SOURCE)
 
 if [ "$1" = --reset ]; then
-  rm -rf .venv .tox build dist htmlcov wasmjs.egg-info
+  rm -rf .venv .tox build dist htmlcov src/wasmjs.egg-info
   find -name __pycache__ | xargs -r rm -rf
 fi
 
